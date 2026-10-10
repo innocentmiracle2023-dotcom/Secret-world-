@@ -1,1 +1,416 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secret World - Adventure Awaits</title>
+<style>
+*{box-sizing:border-box}
+:root{--gold:#ffd166;--green:#164e3d;--dark:#101a28}
+body{margin:0;background:#101a28;color:#fff;font-family:system-ui,Arial,sans-serif}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:11px 14px;font-weight:700}
+button:active{transform:scale(.96)}
+.primary{background:var(--gold);color:#243047}
+.secondary{background:#ffffff19;color:white;border:1px solid #ffffff35}
+header{text-align:center;padding:18px 8px 10px}
+header h1{margin:0;font-size:clamp(26px,7vw,42px);color:var(--gold)}
+header p{margin:5px;color:#d0dbea;font-size:13px}
+#app{max-width:850px;margin:auto;padding:10px}
+.panel{background:#1c2b3b;border:1px solid #ffffff20;border-radius:18px;padding:15px;margin-bottom:12px}
+h2,h3{margin:0 0 10px}
+.muted{color:#bdcada;font-size:13px}
+#intro{text-align:center;padding:22px 15px;background:linear-gradient(160deg,#244f43,#17233b)}
+.heroes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:15px 0}
+.hero{background:#ffffff10;color:white;border:2px solid transparent;padding:12px}
+.hero.selected{border-color:var(--gold);background:#ffd16622}
+.hero span{display:block;font-size:34px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:#ffffff0b;border-radius:12px;padding:10px 5px;text-align:center}
+.stat strong{display:block;font-size:20px;color:var(--gold)}
+.stat small{font-size:11px;color:#c5d0df}
+#worldTitle{color:var(--gold)}
+#scene{position:relative;overflow:hidden;border-radius:16px;min-height:240px;padding:13px;background:linear-gradient(#6ca6be,#b5d8b2 53%,#47784c 53%,#23533b);border:2px solid #ffffff30}
+#scene.valley{background:linear-gradient(#9dcbd9,#e8e3bb 53%,#7baf70 53%,#4c7742)}
+#scene.kingdom{background:linear-gradient(#111b46,#353b72 54%,#4b4977 54%,#242b49)}
+.skyDecor{position:absolute;inset:0;pointer-events:none;font-size:25px;letter-spacing:15px;opacity:.7;overflow:hidden}
+#board{position:relative;z-index:1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;max-width:490px;margin:12px auto 0}
+.tile{aspect-ratio:1;background:#244c3dcc;border:1px solid #ffffff30;border-radius:9px;display:grid;place-items:center;font-size:clamp(16px,5vw,28px);padding:0;min-width:0;position:relative}
+.valley .tile{background:#597d49dd}
+.kingdom .tile{background:#32355bdd}
+.tile.path{background:#ffffff18}
+.tile.heroTile{outline:3px solid var(--gold);background:#f6c95755}
+.tile.wall{background:#303a44}
+.tile.gate{background:#ffe08a;color:#312844}
+.tile:disabled{cursor:default}
+.controls{display:grid;grid-template-columns:repeat(3,58px);justify-content:center;gap:6px;margin:13px auto}
+.controls button{height:49px;padding:0;font-size:23px;background:#ffffff18;color:white;border:1px solid #ffffff40}
+.controls .empty{visibility:hidden}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+#message{background:#101a28;border-radius:12px;padding:11px;text-align:center;font-size:14px;margin-top:10px;min-height:42px}
+#missionList{display:grid;gap:8px}
+.mission{padding:10px;background:#ffffff0a;border-radius:10px;display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.done{color:#90edb4}
+#overlay{position:fixed;inset:0;background:#07111ddd;display:none;place-items:center;padding:18px;z-index:10}
+#overlay .panel{max-width:430px;width:100%;text-align:center}
+footer{text-align:center;padding:15px;color:#9eacbe;font-size:12px}
+button:focus-visible{outline:3px solid white}
+@media(min-width:600px){#gameLayout{display:grid;grid-template-columns:1.4fr .8fr;gap:12px;align-items:start}.heroes{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h1>🌍 SECRET WORLD</h1>
+<p>Three magical worlds. Hidden treasures. One brave explorer.</p>
+</header>
+
+<div id="app">
+<section id="intro" class="panel">
+<h2>✨ Your adventure begins here</h2>
+<p class="muted">Explore mysterious lands, collect crystals, complete missions and unlock the Moonlight Kingdom.</p>
+<h3>Choose your hero</h3>
+<div class="heroes" id="heroChoices">
+<button class="hero selected" data-hero="wizard"><span>🧙</span>Wizard</button>
+<button class="hero" data-hero="knight"><span>🛡️</span>Knight</button>
+<button class="hero" data-hero="fairy"><span>🧚</span>Fairy</button>
+<button class="hero" data-hero="elf"><span>🧝</span>Elf</button>
+</div>
+<button class="primary" id="startBtn">Start Adventure 🚀</button>
+<button class="secondary" id="continueBtn" style="display:none">Continue Saved Adventure</button>
+<p class="muted">Your adventure saves automatically on this device.</p>
+</section>
+
+<section id="game" style="display:none">
+<div class="panel">
+<div class="stats">
+<div class="stat"><strong id="coins">0</strong><small>🪙 Coins</small></div>
+<div class="stat"><strong id="gems">0/5</strong><small>💎 World crystals</small></div>
+<div class="stat"><strong id="level">1/3</strong><small>🌍 World</small></div>
+</div>
+<div style="margin-top:13px">
+<div class="row"><strong id="worldTitle">Enchanted Forest</strong><span id="shieldText" style="text-align:right">🛡️ No shield</span></div>
+<div style="height:8px;background:#ffffff20;border-radius:10px;overflow:hidden;margin-top:8px"><div id="progress" style="height:100%;width:0;background:#ffd166"></div></div>
+</div>
+</div>
+
+<div id="gameLayout">
+<div>
+<div id="scene">
+<div class="skyDecor" id="decor">☁️ 🌳 ✨ 🌲</div>
+<div id="board"></div>
+</div>
+<div class="controls">
+<button class="empty" tabindex="-1"> </button>
+<button data-move="up" aria-label="Move up">⬆️</button>
+<button class="empty" tabindex="-1"> </button>
+<button data-move="left" aria-label="Move left">⬅️</button>
+<button data-move="down" aria-label="Move down">⬇️</button>
+<button data-move="right" aria-label="Move right">➡️</button>
+</div>
+<div id="message" role="status">Collect all five crystals to unlock the gate!</div>
+<div class="panel">
+<h3>🎒 Adventure tools</h3>
+<div class="row">
+<button class="secondary" id="soundBtn">🔊 Sound: On</button>
+<button class="secondary" id="saveBtn">💾 Save now</button>
+</div>
+<p class="muted">Keyboard players: use the arrow keys to move.</p>
+</div>
+</div>
+
+<div>
+<div class="panel">
+<h3>📜 Mission Board</h3>
+<p class="muted">Complete missions to earn bonus coins.</p>
+<div id="missionList"></div>
+</div>
+<div class="panel">
+<h3>🗺️ How to play</h3>
+<p class="muted">💎 Collect five crystals in every world.</p>
+<p class="muted">🪙 Find coins and treasure chests.</p>
+<p class="muted">🌿 Watch out for thorn traps.</p>
+<p class="muted">🛡️ A shield protects you from one thorn trap.</p>
+<p class="muted">✨ Find two special tiles to complete the world challenge.</p>
+<button class="secondary" id="resetBtn" style="width:100%">Reset Saved Adventure</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+
+<div id="overlay">
+<div class="panel">
+<div style="font-size:55px" id="overlayIcon">🏆</div>
+<h2 id="overlayTitle">World complete!</h2>
+<p id="overlayText"></p>
+<button class="primary" id="nextBtn">Next World ➜</button>
+<button class="secondary" id="restartBtn" style="display:none">Play Again</button>
+</div>
+</div>
+
+<footer>Secret World · Made for curious explorers everywhere 💚</footer>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const SAVE_KEY = "secretWorldAdventureV1";
+const heroes = {
+ wizard:{icon:"🧙",name:"Wizard"},
+ knight:{icon:"🛡️",name:"Knight"},
+ fairy:{icon:"🧚",name:"Fairy"},
+ elf:{icon:"🧝",name:"Elf"}
+};
+const worlds = [
+ {name:"Enchanted Forest",theme:"forest",decor:"☁️ 🌳 ✨ 🌲",special:"fairy"},
+ {name:"Mushroom Valley",theme:"valley",decor:"🍄 ☁️ 🍃 🍄",special:"mushroom"},
+ {name:"Moonlight Kingdom",theme:"kingdom",decor:"🌙 ✨ ⭐ 🌌",special:"moonstone"}
+];
+const crystals = [[1,1],[6,1],[3,3],[1,5],[5,6]];
+const thorns = [[3,1],[5,3],[2,6]];
+const walls = [[2,2],[4,2],[2,4],[4,4],[6,4]];
+const chests = [[6,2]];
+const specials = [[0,5],[5,1]];
+const shieldTiles = [[0,2]];
+let audioOn = true, audioContext = null;
+let chosenHero = "wizard";
+let state = freshState();
+
+function freshState(){
+ return {
+  hero:"wizard",level:0,x:0,y:0,coins:0,steps:0,
+  gems:[],chests:[],specials:[],shield:false,
+  completed:[],missions:[],started:false,finished:false,
+  message:"Welcome, explorer! Collect five crystals to unlock the gate."
+ };
+}
+function say(message){state.message=message;renderMessage();}
+function renderMessage(){$("message").textContent=state.message;}
+function same(a,b){return a[0]===b[0]&&a[1]===b[1];}
+function has(list,pos){return list.some(p=>same(p,pos));}
+function worldGems(){return state.gems.filter(g=>g.level===state.level).length;}
+function tileId(x,y){return y*8+x;}
+function randDestination(){return [[0,0],[7,0],[0,7],[6,7]][state.steps%4];}
+function playTone(freq=550,duration=.09){
+ if(!audioOn)return;
+ try{
+  audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();
+  if(audioContext.state==="suspended")audioContext.resume();
+  const osc=audioContext.createOscillator(),gain=audioContext.createGain();
+  osc.frequency.value=freq;osc.type="sine";
+  gain.gain.setValueAtTime(.06,audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(.001,audioContext.currentTime+duration);
+  osc.connect(gain);gain.connect(audioContext.destination);
+  osc.start();osc.stop(audioContext.currentTime+duration);
+ }catch(e){}
+}
+function save(){
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));say("💾 Adventure saved on this device!");}
+ catch(e){say("Your browser couldn't save progress. Try allowing site storage.");}
+}
+function load(){
+ try{
+  const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
+  if(!s||!Array.isArray(s.gems))return false;
+  state={...freshState(),...s};
+  state.gems=Array.isArray(s.gems)?s.gems:[];
+  state.chests=Array.isArray(s.chests)?s.chests:[];
+  state.specials=Array.isArray(s.specials)?s.specials:[];
+  state.completed=Array.isArray(s.completed)?s.completed:[];
+  state.missions=Array.isArray(s.missions)?s.missions:[];
+  if(!heroes[state.hero])state.hero="wizard";
+  state.level=Math.max(0,Math.min(2,Number(state.level)||0));
+  state.x=Math.max(0,Math.min(7,Number(state.x)||0));
+  state.y=Math.max(0,Math.min(7,Number(state.y)||0));
+  return true;
+ }catch(e){return false;}
+}
+function startNew(){
+ state=freshState();state.hero=chosenHero;state.started=true;
+ $("intro").style.display="none";$("game").style.display="block";
+ say("Your adventure begins! Collect five crystals and find the golden gate.");
+ render();saveQuiet();
+}
+function saveQuiet(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));}catch(e){}}
+function continueGame(){
+ if(!load())return;
+ state.started=true;
+ $("intro").style.display="none";$("game").style.display="block";
+ if(state.finished){showFinal();return;}
+ say("Welcome back, "+heroes[state.hero].name+"! Your adventure continues.");
+ render();
+}
+function tileSymbol(x,y){
+ const p=[x,y],level=state.level;
+ if(x===7&&y===7)return worldGems()>=5?"🚪":"🔒";
+ if(x===state.x&&y===state.y)return heroes[state.hero].icon;
+ if(has(crystals,p)&&!state.gems.some(g=>g.level===level&&same(g.pos,p)))return "💎";
+ if(has(thorns,p))return "🌵";
+ if(has(walls,p))return "🪨";
+ if(has(chests,p)&&!state.chests.some(c=>c.level===level&&same(c.pos,p)))return "🎁";
+ if(has(specials,p)&&!state.specials.some(s=>s.level===level&&same(s.pos,p))){
+  return worlds[level].special==="fairy"?"🧚":worlds[level].special==="mushroom"?"🍄":"🌙";
+ }
+ if(has(shieldTiles,p)&&!state.specials.some(s=>s.level===level&&same(s.pos,p)&&s.type==="shield"))return "🛡️";
+ return "";
+}
+function renderBoard(){
+ const board=$("board");board.innerHTML="";
+ const scene=$("scene");scene.className=state.level===1?"valley":state.level===2?"kingdom":"";
+ $("decor").textContent=worlds[state.level].decor;
+ for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+  const b=document.createElement("button");
+  b.className="tile";
+  const p=[x,y];
+  if(has(walls,p))b.classList.add("wall");
+  if(x===state.x&&y===state.y)b.classList.add("heroTile");
+  if(x===7&&y===7)b.classList.add("gate");
+  b.textContent=tileSymbol(x,y);
+  b.setAttribute("aria-label",b.textContent||"Path");
+  b.addEventListener("click",()=>{
+   if(Math.abs(x-state.x)+Math.abs(y-state.y)===1)move(x-state.x,y-state.y);
+   else say("Move one tile at a time using the arrow buttons.");
+  });
+  board.appendChild(b);
+ }
+}
+function renderStats(){
+ $("coins").textContent=state.coins;
+ $("gems").textContent=worldGems()+"/5";
+ $("level").textContent=(state.level+1)+"/3";
+ $("worldTitle").textContent=worlds[state.level].name;
+ $("shieldText").textContent=state.shield?"🛡️ Shield ready":"🛡️ No shield";
+ $("progress").style.width=(worldGems()/5*100)+"%";
+}
+function renderMissions(){
+ const list=$("missionList");list.innerHTML="";
+ const defs=[
+  {id:"collector",title:"Crystal Collector",desc:"Collect 3 crystals in this world",goal:3,reward:20,progress:worldGems()},
+  {id:"treasure",title:"Treasure Hunter",desc:"Collect all 5 crystals",goal:5,reward:40,progress:worldGems()},
+  {id:"explorer",title:"Brave Explorer",desc:"Take 10 steps in this world",goal:10,reward:15,progress:state.steps},
+  {id:"special",title:"World Explorer",desc:"Find 2 special tiles here",goal:2,reward:30,progress:state.specials.filter(s=>s.level===state.level&&s.type!=="shield").length}
+ ];
+ defs.forEach(m=>{
+  const key=m.id+"-"+state.level;
+  const done=state.missions.includes(key);
+  const el=document.createElement("div");el.className="mission";
+  const left=document.createElement("div");
+  left.innerHTML="<strong>"+m.title+"</strong><br><span class='muted'>"+m.desc+"</span><br><span class='"+(done?"done":"muted")+"'>"+Math.min(m.progress,m.goal)+"/"+m.goal+(done?" · Completed":"")+"</span>";
+  const right=document.createElement("div");right.style.textAlign="right";
+  right.innerHTML="<strong>🪙 "+m.reward+"</strong><br><span class='muted'>Reward</span>";
+  el.append(left,right);list.appendChild(el);
+ });
+}
+function render(){renderStats();renderBoard();renderMissions();renderMessage();}
+function awardMissions(){
+ const defs=[
+  ["collector",worldGems()>=3,20,"Crystal Collector"],
+  ["treasure",worldGems()>=5,40,"Treasure Hunter"],
+  ["explorer",state.steps>=10,15,"Brave Explorer"],
+  ["special",state.specials.filter(s=>s.level===state.level&&s.type!=="shield").length>=2,30,"World Explorer"]
+ ];
+ defs.forEach(([id,ok,reward,name])=>{
+  const key=id+"-"+state.level;
+  if(ok&&!state.missions.includes(key)){
+   state.missions.push(key);state.coins+=reward;
+   say("🏆 Mission complete: "+name+"! +"+reward+" coins!");
+  }
+ });
+}
+function move(dx,dy){
+ if(!state.started||state.finished||state.completed.includes(state.level))return;
+ const nx=state.x+dx,ny=state.y+dy;
+ if(nx<0||nx>7||ny<0||ny>7){say("You can't go beyond the edge of this world.");return;}
+ const p=[nx,ny];
+ if(has(walls,p)){say("🪨 A rock blocks the way. Find another path!");playTone(180);return;}
+ if(nx===7&&ny===7&&worldGems()<5){say("🔒 The gate needs all five crystals first!");playTone(220);return;}
+ state.x=nx;state.y=ny;state.steps++;
+ let msg="Keep exploring, brave "+heroes[state.hero].name+"!";
+ if(has(crystals,p)&&!state.gems.some(g=>g.level===state.level&&same(g.pos,p))){
+  state.gems.push({level:state.level,pos:p});state.coins+=10;msg="💎 Crystal collected! +10 coins.";playTone(750);
+ }
+ if(has(chests,p)&&!state.chests.some(c=>c.level===state.level&&same(c.pos,p))){
+  state.chests.push({level:state.level,pos:p});state.coins+=25;msg="🎁 Treasure found! +25 coins!";playTone(850);
+ }
+ if(has(thorns,p)){
+  if(state.shield){state.shield=false;msg="🛡️ Your shield protected you from the thorns!";playTone(650);}
+  else{state.coins=Math.max(0,state.coins-5);state.x=0;state.y=0;msg="🌵 Thorn trap! You lost 5 coins and returned to the start.";playTone(160);}
+ }
+ if(has(shieldTiles,p)&&!state.specials.some(s=>s.level===state.level&&same(s.pos,p)&&s.type==="shield")){
+  state.specials.push({level:state.level,pos:p,type:"shield"});state.shield=true;msg="🛡️ Shield collected! It protects you from one thorn trap.";playTone(650);
+ }
+ if(has(specials,p)&&!state.specials.some(s=>s.level===state.level&&same(s.pos,p))){
+  state.specials.push({level:state.level,pos:p,type:worlds[state.level].special});
+  if(state.level===0){state.coins+=15;msg="🧚 Hidden fairy grove discovered! +15 coins.";}
+  else if(state.level===1){const dest=randDestination();state.x=dest[0];state.y=dest[1];msg="🍄 Magic mushroom bounce! You found a secret route!";}
+  else{state.coins+=20;state.shield=true;msg="🌙 Moonstone found! +20 coins and a shield!";}
+  playTone(900);
+ }
+ awardMissions();
+ if(state.x===7&&state.y===7){
+  if(!state.completed.includes(state.level)){
+   state.completed.push(state.level);state.coins+=50;
+   msg="🏆 World complete! +50 bonus coins!";
+   say(msg);render();saveQuiet();showWorldComplete();return;
+  }
+ }
+ say(msg);render();saveQuiet();
+}
+function showWorldComplete(){
+ $("overlay").style.display="grid";
+ $("overlayIcon").textContent=state.level===2?"🏆":"🌟";
+ $("overlayTitle").textContent=worlds[state.level].name+" completed!";
+ $("overlayText").textContent=state.level===2?
+ "Amazing! You've conquered all three worlds and earned "+state.coins+" coins!":
+ "You collected all five crystals and earned your 50-coin gate reward. Ready for the next magical world?";
+ $("nextBtn").style.display=state.level===2?"none":"inline-block";
+ $("restartBtn").style.display=state.level===2?"inline-block":"none";
+}
+function showFinal(){
+ $("overlay").style.display="grid";
+ $("overlayIcon").textContent="🏆";
+ $("overlayTitle").textContent="You conquered Secret World!";
+ $("overlayText").textContent="Your adventure is complete! Total coins: "+state.coins+".";
+ $("nextBtn").style.display="none";$("restartBtn").style.display="inline-block";
+}
+function nextWorld(){
+ if(state.level>=2)return;
+ state.level++;state.x=0;state.y=0;state.steps=0;
+ $("overlay").style.display="none";
+ say("Welcome to "+worlds[state.level].name+"! Discover its hidden treasures.");
+ render();saveQuiet();
+}
+function reset(){
+ if(!confirm("Reset your saved adventure? Your current progress will be erased."))return;
+ try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+ state=freshState();chosenHero="wizard";
+ document.querySelectorAll(".hero").forEach(b=>b.classList.toggle("selected",b.dataset.hero==="wizard"));
+ $("overlay").style.display="none";$("game").style.display="none";$("intro").style.display="block";
+ $("continueBtn").style.display="none";
+ say("A fresh adventure is ready. Choose your hero!");
+}
+document.querySelectorAll(".hero").forEach(b=>b.addEventListener("click",()=>{
+ chosenHero=b.dataset.hero;
+ document.querySelectorAll(".hero").forEach(h=>h.classList.toggle("selected",h===b));
+ playTone(500);
+}));
+$("startBtn").addEventListener("click",()=>{
+ if(load()&&state.started&&!state.finished&&confirm("Start a new adventure? This will replace your saved progress.")){startNew();}
+ else if(!state.started||!load())startNew();
+});
+$("continueBtn").addEventListener("click",continueGame);
+document.querySelectorAll("[data-move]").forEach(b=>b.addEventListener("click",()=>{
+ const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[b.dataset.move];move(d[0],d[1]);
+}));
+document.addEventListener("keydown",e=>{
+ const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
+ if(d&&$("game").style.display!=="none"){e.preventDefault();move(d[0],d[1]);}
+});
+$("soundBtn").addEventListener("click",()=>{audioOn=!audioOn;$("soundBtn").textContent=audioOn?"🔊 Sound: On":"🔇 Sound: Off";if(audioOn)playTone();});
+$("saveBtn").addEventListener("click",save);
+$("resetBtn").addEventListener("click",reset);
+$("nextBtn").addEventListener("click",nextWorld);
+$("restartBtn").addEventListener("click",()=>{ $("overlay").style.display="none";startNew();});
+if(load()&&state.started&&!state.finished){$("continueBtn").style.display="inline-block";}
+})()
